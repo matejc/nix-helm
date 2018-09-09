@@ -3,6 +3,15 @@
 Kubernetes and Helm management tool bound with Nix
 
 
+# Motivation
+
+Helm has charts which are basically apps and then subcharts that are a bit limited in terms if you would like to describe whole cluster(s),
+even so.. if you create multiple charts you can not put configuration in one config file and just ran it, so it is time for abstraction layer.
+Abstraction layer that can describe environments (can be also called `projects` I guess), and deploy every Helm chart and Kubernetes resource in one go.
+
+This is not to be used in production environment, it was made because I wanted a simple solution to deploy resources and still have a repository of resources (Helm charts) on my disposal.
+
+
 # Features
 
 - Environments are a group of entries
@@ -33,7 +42,7 @@ Kubernetes and Helm management tool bound with Nix
 ```
 $ cd examples/simple/
 $ nix-build .
-./result/bin/nix-helm-default
+$ ./result/bin/nix-helm-simple
 ```
 
 
