@@ -3,7 +3,7 @@ with lib;
 with pkgs;
 let
   yamlFile = name: yaml: path: if path != null then path else builtins.toFile "${name}.yaml" yaml;
-  jsonFile = yamlFile: runCommand "toJson" {
+  jsonFile = yamlFile: runCommand "yaml-to-json" {
     buildInputs = [ remarshal ];
   } ''
     jsonFile="$out"
@@ -80,10 +80,10 @@ let
     then
       inputFile="$(mktemp)"
       cat > $inputFile
-      outputFile="$(${nix}/bin/nix-build ${./yaml2nix.nix} --no-out-link -A ${arg} --arg path $inputFile)"
+      outputFile="$(${nix}/bin/nix-build ${./utils.nix} --no-out-link -A ${arg} --arg path $inputFile)"
       test -f $inputFile && rm $inputFile
     else
-      outputFile="$(${nix}/bin/nix-build ${./yaml2nix.nix} --no-out-link -A ${arg} --arg path $1)"
+      outputFile="$(${nix}/bin/nix-build ${./utils.nix} --no-out-link -A ${arg} --arg path $1)"
     fi
     cat $outputFile
   '';
@@ -108,4 +108,9 @@ in {
     concatMapStringsSep "\n---\n" (v: builtins.readFile (nix2yaml v)) nixes;
   yaml2nixScript = scriptBin "yaml2nix";
   nix2yamlScript = scriptBin "nix2yaml";
+  toBase64 = value:
+    builtins.readFile
+      (pkgs.runCommand "to-base64" {
+          buildInputs = [ pkgs.coreutils ];
+        } "echo -n '${value}' | base64 -w0 > $out");
 }
