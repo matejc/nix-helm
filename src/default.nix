@@ -2,6 +2,7 @@
 , lib ? pkgs.lib
 , kubectl ? "${pkgs.kubernetes}/bin/kubectl"
 , helm ? "${pkgs.kubernetes-helm}/bin/helm"
+, chartsPath ? ./charts
 , valuesPath ? ./values
 , resourcesPath ? ./resources }:
 
@@ -30,7 +31,7 @@ let
     done
   '';
 
-  mkHelm = {environment, name, chart, namespace, context, values ? (importValues {inherit environment name;})}:
+  mkHelm = {environment, name, chart ? (chartsPath + "/${name}"), namespace, context, values ? (importValues {inherit environment name;})}:
   let
     output = mkOutput { inherit environment name values; };
   in
@@ -207,14 +208,17 @@ let
     export PATH=""
   '';
 
-  mkEnvironment = {environment ? "default", entries}:
+  mkEnvironment = {environment ? "default", entries, namespace ? null, context ? null}:
   let
     entries' = map (entry:
         let
-          entry' = list: (lib.filterAttrs (key: v: lib.any (n: key == n) list) entry) // { inherit environment; };
+          defaults =
+            (lib.optionalAttrs (namespace != null) {inherit namespace;}) //
+            (lib.optionalAttrs (context != null) {inherit context;});
+          entry' = list: defaults // (lib.filterAttrs (key: v: lib.any (n: key == n) list) entry) // { inherit environment; };
         in
           if entry.type == "command" then mkCommand (entry' ["name" "create" "read" "update" "delete"])
-          else if entry.type == "kube" then mkKube (entry' ["name" "context" "namespace" "resources"])
+          else if entry.type == "kube" then mkKube (entry' ["name" "context" "namespace" "resources" "retryTimes"])
           else if entry.type == "helm" then mkHelm (entry' ["name" "context" "chart" "namespace" "values"])
           else throw "Unsupported ${entry.type}"
       ) entries;
