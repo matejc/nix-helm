@@ -46,7 +46,37 @@ $ ./result/bin/nix-helm-simple
 ```
 
 
-# nix-helm-environment command
+## File structure
+
+```
+simple
+├── charts
+│   └── statics/
+├── resources
+│   └── apps-namespace-simple.nix
+├── values
+│   └── statics-simple.nix
+├── default.nix
+└── vars.nix
+```
+
+- charts/
+  - local Helm charts
+- resources/
+  - Kubernetes resource files in Nix not YAML, by default
+  - named as `<entry name>-<environment name>.nix`
+- values/
+  - Helm chart values files, just that they by default are in Nix not YAML
+  - named as `<entry name>-<environment name>.nix`
+- default.nix
+  - entry point, this is where you build an environment(s)
+- vars.nix
+  - global variables, where your top level variables reside
+  - this file is meant to be imported in every `resources` and `values` files
+  - it is for domain names, user names, secret resource names, ... this file should be kept secret and normally not included in version control repository
+
+
+## nix-helm-environment command
 
 ```
 nix-helm-<environmentName> <create|read|update|delete> <all|entryName1> [entryName1 entryName2 ...]
@@ -58,6 +88,29 @@ nix-helm-<environmentName> <create|read|update|delete> <all|entryName1> [entryNa
 ./result/bin/nix-helm-default
 nix-helm-default> update [Press Tab Tab]
 ```
+
+## Other tools
+
+To convert YAML files to Nix, lets build yaml2nix script:
+
+```
+nix-build ./src -A yaml2nixScript
+```
+
+To use it:
+
+```
+$ ./result/bin/yaml2nix ./something.yaml
+```
+
+or just pipe through it:
+
+```
+cat ./something.yaml | result/bin/yaml2nix
+```
+
+Result will be printed in stdout and wrapped as list of resources, just like `resources` and `values` files require.
+The script supports multi document YAML files.
 
 
 # TODO
