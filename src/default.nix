@@ -79,15 +79,15 @@ let
         ${retryScript} ${toString retryTimes} ${kubectl} create -f ${output.file} --context "${context}" --namespace "${namespace}"
       '';
       read = ''
-        resources="$(printf "$(${kubectl} api-resources --verbs=list -o name)" | ${pkgs.coreutils}/bin/tr '\n' ',')"
-        ${kubectl} get $resources --ignore-not-found --context "${context}" --namespace "${namespace}" --show-kind -l nix-helm-name="${name}-${environment}"
+        resources="$(echo -n "$(${kubectl} api-resources --verbs=get -o name | ${pkgs.gnugrep}/bin/grep -v componentstatus)" | ${pkgs.coreutils}/bin/tr '\n' ',')"
+        ${kubectl} get $resources --ignore-not-found --context "${context}" --namespace "${namespace}" -l nix-helm-name="${name}-${environment}"
       '';
       update = ''
         ${kubectl} apply -f ${output.file} --context "${context}" --namespace "${namespace}"
       '';
       delete = ''
-        resources="$(printf "$(${kubectl} api-resources --verbs=list -o name)" | ${pkgs.coreutils}/bin/tr '\n' ',')"
-        ${kubectl} delete $resources --ignore-not-found --context "${context}" --namespace "${namespace}" --show-kind -l nix-helm-name="${name}-${environment}"
+        resources="$(echo -n "$(${kubectl} api-resources --verbs=delete -o name)" | ${pkgs.coreutils}/bin/tr '\n' ',')"
+        ${kubectl} delete $resources --ignore-not-found --context "${context}" --namespace "${namespace}" -l nix-helm-name="${name}-${environment}"
       '';
     };
 
