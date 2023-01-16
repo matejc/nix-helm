@@ -1,11 +1,12 @@
-{ pkgs ? import <nixpkgs> {}, lib ? pkgs.lib }:
+{ pkgs ? import <nixpkgs> { }, lib ? pkgs.lib }:
 with lib;
 with pkgs;
 let
   yamlFile = name: yaml: path: if path != null then path else builtins.toFile "${name}.yaml" yaml;
-  jsonFile = yamlFile: runCommand "yaml-to-json" {
-    buildInputs = [ remarshal ];
-  } ''
+  jsonFile = yamlFile: runCommand "yaml-to-json"
+    {
+      buildInputs = [ remarshal ];
+    } ''
     jsonFile="$out"
     echo -n "[" > $jsonFile
 
@@ -23,19 +24,19 @@ let
   '';
 
   string = value:
-      "\"${value}\"";
+    "\"${value}\"";
 
   any = value:
-      toString value;
+    toString value;
 
   bool = value:
-      if value then "true" else "false";
+    if value then "true" else "false";
 
   list = value:
     "[${concatMapStringsSep " " nix2string value}]";
 
   attrs = value:
-    if value == {}
+    if value == { }
     then
       "{ }"
     else
@@ -51,9 +52,10 @@ let
     else if lib.isAttrs v then attrs v
     else throw "Attribute has unsupported type (${builtins.typeOf v})!";
 
-  nixFile = jsonFile: runCommand "toNix" {
-    buildInputs = [ nix perl nix-beautify ];
-  } ''
+  nixFile = jsonFile: runCommand "toNix"
+    {
+      buildInputs = [ nix perl nix-beautify ];
+    } ''
     nixFile="$out"
     echo '${nix2string (builtins.fromJSON (builtins.readFile jsonFile))}' | perl -ne 's/(?!\ )([A-Za-z0-9\-\/]+[\.\/]+[A-Za-z0-9\-\/]+)(?=\ =\ )/"$1"/g; print;' | sed "s/;/;\n/g" | sed "s/{/{\n/g" | nix-beautify > $nixFile
   '';
@@ -90,12 +92,35 @@ let
 
   scriptBin = arg: writeScriptBin arg (scriptFun arg);
 
-  nix2yaml = config: runCommand "to-yaml" {
-    buildInputs = [ remarshal ];
-  } ''
+  nix2yaml = config: runCommand "to-yaml"
+    {
+      buildInputs = [ remarshal ];
+    } ''
     remarshal -i ${writeText "to-json" (builtins.toJSON config)} -if json -of yaml > $out
   '';
-in {
+
+  retryScript = pkgs.writeScript "retry.sh" ''
+    #!${pkgs.stdenv.shell}
+
+    max_attempts="$1"; shift
+    cmd="$@"
+    attempt_num=1
+
+    until $cmd
+    do
+        if (( attempt_num == max_attempts ))
+        then
+            echo "Attempt $attempt_num failed and there are no more attempts left!"
+            exit 1
+        else
+            echo "Attempt $attempt_num failed! Trying again in $attempt_num seconds..."
+            sleep $(( attempt_num++ ))
+        fi
+    done
+  '';
+in
+{
+  inherit retryScript;
   yaml2nix = { name ? "default", yaml ? null, path ? null }:
     nixFile (jsonFile (yamlFile name yaml path));
   nix2yaml = { name ? "default", nix ? null, path ? null }:
@@ -106,11 +131,24 @@ in {
     builtins.fromJSON (builtins.readFile (jsonFile (yamlFile name yaml path)));
   toYAML = { nixes }:
     concatMapStringsSep "\n---\n" (v: builtins.readFile (nix2yaml v)) nixes;
+
+  toYamlFile = { name, attrs, passthru }:
+    let
+      file = nix2yaml { nix = attrs; };
+    in
+    pkgs.stdenv.mkDerivation {
+      inherit name passthru;
+      phases = "phase";
+      phase = ''
+        cp ${file} $out
+      '';
+    };
   yaml2nixScript = scriptBin "yaml2nix";
   nix2yamlScript = scriptBin "nix2yaml";
   toBase64 = value:
     builtins.readFile
-      (pkgs.runCommand "to-base64" {
+      (pkgs.runCommand "to-base64"
+        {
           buildInputs = [ pkgs.coreutils ];
         } "echo -n '${value}' | base64 -w0 > $out");
 }
