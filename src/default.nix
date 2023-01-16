@@ -6,67 +6,55 @@ let
   helm = "${pkgs.kubernetes-helm}/bin/helm";
   utils = import ./utils.nix { inherit pkgs lib; };
 
-  mkHelm = { environment, name, chart, namespace, context, values }:
+  mkHelm = { name, chart, namespace, context, values }:
     let
-      output = mkOutput { inherit environment name values; };
+      output = mkOutput { inherit name values; };
+      mkHelmCommand = operation: args: pkgs.writeShellScriptBin "${operation}-${namespace}-${name}.sh" ''
+        ${helm} ${operation} ${name} --namespace "${namespace}" --kube-context "${context}" ${args}
+      '';
     in
-    mkEntry {
-      inherit environment name output values;
-      type = "helm";
-      create = ''
-        ${helm} install --namespace "${namespace}" --kube-context "${context}" --values "${output}" "${name}-${environment}" "${chart}"
-      '';
-      read = ''
-        ${helm} status "${name}-${environment}" --kube-context "${context}"
-      '';
-      update = ''
-        ${helm} upgrade --recreate-pods --namespace "${namespace}" --kube-context "${context}" --values "${output}" "${name}-${environment}" "${chart}"
-      '';
-      delete = ''
-        ${helm} delete "${name}-${environment}" --purge --kube-context "${context}"
-      '';
+    {
+      inherit name output values;
+      install = mkHelmCommand "install" ''--values "${output}" "${chart}"'';
+      status = mkHelmCommand "status" "";
+      upgrade = mkHelmCommand "upgrade" ''--values "${output}" "${chart}"'';
+      uninstall = mkHelmCommand "uninstall" "";
     };
 
-  mkOutput = { environment, name, values ? null }:
-    utils.toYamlFile { name = "${name}-${environment}.yaml"; attrs = values; passthru = { inherit environment name; }; };
+  mkOutput = { name, values ? null }:
+    utils.toYamlFile { name = "${name}.yaml"; attrs = values; passthru = { inherit name; }; };
 
-  mkKube = { environment, name, namespace, context, resources, retryTimes ? 5 }:
+  mkKube = { name, namespace, context, resources, retryTimes ? 5 }:
     let
-      r = map (resource: lib.recursiveUpdate resource { metadata.labels.nix-helm-name = "${name}-${environment}"; }) resources;
-      output = mkOutput { inherit environment name; resources = r; };
+      r = map (resource: lib.recursiveUpdate resource { metadata.labels.nix-helm-name = name; }) resources;
+      output = mkOutput { inherit name; resources = r; };
     in
-    mkEntry {
-      inherit environment name output;
+    {
+      inherit name output;
       type = "kube";
       create = ''
         ${utils.retryScript} ${toString retryTimes} ${kubectl} create -f ${output} --context "${context}" --namespace "${namespace}"
       '';
       read = ''
         resources="$(echo -n "$(${kubectl} api-resources --verbs=get -o name | ${pkgs.gnugrep}/bin/grep -v componentstatus)" | ${pkgs.coreutils}/bin/tr '\n' ',')"
-        ${kubectl} get $resources --ignore-not-found --context "${context}" --namespace "${namespace}" -l nix-helm-name="${name}-${environment}"
+        ${kubectl} get $resources --ignore-not-found --context "${context}" --namespace "${namespace}" -l nix-helm-name="${name}"
       '';
       update = ''
         ${kubectl} apply -f ${output} --context "${context}" --namespace "${namespace}"
       '';
       delete = ''
         resources="$(echo -n "$(${kubectl} api-resources --verbs=delete -o name)" | ${pkgs.coreutils}/bin/tr '\n' ',')"
-        ${kubectl} delete $resources --ignore-not-found --context "${context}" --namespace "${namespace}" -l nix-helm-name="${name}-${environment}"
+        ${kubectl} delete $resources --ignore-not-found --context "${context}" --namespace "${namespace}" -l nix-helm-name="${name}"
       '';
     };
 
-  mkEntry = { environment, name, type, values ? { }, create, read, update, delete, output ? null }:
-    let
-      shellApp = name: content: {
-        type = "app";
-        program = lib.getExe (pkgs.writeShellScriptBin name content);
-      };
-    in
+  mkEntry = { name, type, values ? { }, create, read, update, delete, output ? null }:
     {
-      inherit environment name type output values;
+      inherit name type output values;
       create = pkgs.writeShellScriptBin "create.sh" create;
-      read = shellApp "read.sh" read;
-      update = shellApp "update.sh" update;
-      delete = shellApp "delete.sh" delete;
+      read = pkgs.writeShellScriptBin "read.sh" read;
+      update = pkgs.writeShellScriptBin "update.sh" update;
+      delete = pkgs.writeShellScriptBin "delete.sh" delete;
 
     };
 
