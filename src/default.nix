@@ -6,11 +6,11 @@ let
   helm = "${pkgs.kubernetes-helm}/bin/helm";
   utils = import ./utils.nix { inherit pkgs lib; };
 
-  mkHelm = { name, chart, namespace, context, values }:
+  mkHelm = { name, chart, namespace, context, kubeconfig, values }:
     let
       output = mkOutput { inherit name values; };
       mkHelmCommand = operation: args: pkgs.writeShellScriptBin "${operation}-${namespace}-${name}.sh" ''
-        ${helm} ${operation} ${name} --namespace "${namespace}" --kube-context "${context}" ${args}
+        ${helm} ${operation} ${name} --namespace "${namespace}" --kubeconfig "${kubeconfig}" --kube-context "${context}" ${args}
       '';
     in
     {
