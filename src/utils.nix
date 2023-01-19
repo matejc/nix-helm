@@ -133,14 +133,11 @@ in
     concatMapStringsSep "\n---\n" (v: builtins.readFile (nix2yaml v)) nixes;
 
   toYamlFile = { name, attrs, passthru }:
-    let
-      file = nix2yaml { nix = attrs; };
-    in
     pkgs.stdenv.mkDerivation {
       inherit name passthru;
       phases = "phase";
       phase = ''
-        cp ${file} $out
+        cp ${nix2yaml attrs} $out
       '';
     };
   yaml2nixScript = scriptBin "yaml2nix";
