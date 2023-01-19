@@ -18,5 +18,7 @@
 
       deployments.${system} = examples helmish.${system};
 
+      apps.${system} = builtins.mapAttrs (_: v: {type = "app"; program= nixpkgs.lib.getExe v; } ) (pkgsAll.${system}.callPackage ./src/apps.nix {});
+
     };
 }
