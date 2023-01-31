@@ -132,7 +132,7 @@ in
   toYAML = { nixes }:
     concatMapStringsSep "\n---\n" (v: builtins.readFile (nix2yaml v)) nixes;
 
-  toYamlFile = { name, attrs, passthru }:
+  toYamlFile = { name, attrs, passthru ? { } }:
     pkgs.stdenv.mkDerivation {
       inherit name passthru;
       phases = "phase";

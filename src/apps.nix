@@ -1,9 +1,10 @@
-{pkgs, lib}:
+{ pkgs, lib }:
 let
   inherit (lib) getExe readFile;
   pythonScript = ./json2nix.py;
 
-in rec {
+in
+rec {
   json2nix = pkgs.writeShellScriptBin "json2nix" ''
     ${getExe pkgs.python3} ${pythonScript} $@
   '';
@@ -24,4 +25,4 @@ in rec {
     rm /tmp/yaml2nix.tmp
   '';
 
-  }
+}
