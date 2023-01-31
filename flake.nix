@@ -1,24 +1,23 @@
 {
-  description = "A very basic flake";
-
   outputs = { self, nixpkgs }:
     let
-      system = "x86_64-linux";
-      pkgsAll = nixpkgs.legacyPackages;
-      helmish = { ${system} = mkHelmish pkgsAll.${system}; };
+      supportedSystems = [ "x86_64-linux" "aarch64-linux" "aarch64-darwin" "x86_64-darwin" ];
+      forAllSystems = f: nixpkgs.lib.genAttrs supportedSystems (system: f system);
+      nixpkgsFor = forAllSystems (system: nixpkgs.legacyPackages.${system});
 
-      mkHelmish = pkgs: pkgs.callPackage ./src { };
+      mkHelmish = system: nixpkgsFor.${system}.callPackage ./src { };
       examples = helmish: {
         sample = import ./examples/nginx { inherit helmish; };
       };
     in
     {
 
-      packages.${system} = helmish.${system};
+      builders = forAllSystems (system: mkHelmish system);
+      deployments = forAllSystems (system: examples self.builders.${system});
 
-      deployments.${system} = examples helmish.${system};
-
-      apps.${system} = builtins.mapAttrs (_: v: { type = "app"; program = nixpkgs.lib.getExe v; }) (pkgsAll.${system}.callPackage ./src/apps.nix { });
+      apps = forAllSystems (system:
+        builtins.mapAttrs (_: v: { type = "app"; program = nixpkgs.lib.getExe v; }) (nixpkgsFor.${system}.callPackage ./src/apps.nix { })
+      );
 
     };
 }
