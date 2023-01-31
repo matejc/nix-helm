@@ -61,6 +61,9 @@ def fmt_any(o, flatten):
         return fmt_array(o, flatten)
     if isinstance(o, dict):
         return fmt_object(o, flatten)
+    if o is None:
+        return "null";
+
     raise TypeError(f"Unknown type {type(o)!r}")
 
 
