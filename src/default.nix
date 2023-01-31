@@ -15,9 +15,9 @@ let
     in
     {
       inherit name output values;
-      install = mkHelmCommand "install" ''--values "${output}" "${output}"'';
+      install = mkHelmCommand "install" ''--values "${output}/values.yaml" "${output}"'';
       status = mkHelmCommand "status" "";
-      upgrade = mkHelmCommand "upgrade" ''--values "${output}" "${output}"'';
+      upgrade = mkHelmCommand "upgrade" ''--values "${output}/values.yaml" "${output}"'';
       uninstall = mkHelmCommand "uninstall" "";
     };
 
