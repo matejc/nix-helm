@@ -4,6 +4,7 @@ helmish.mkHelm {
   chart = ./.;
   namespace = "test";
   context = "arn:aws:eks:us-east-1:926093910549:cluster/lace-prod-us-east-1";
+  kubeconfig = "$HOME/.kube/config";
   values = {
     fullnameOverride = "";
     image = {
