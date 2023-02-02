@@ -3,22 +3,39 @@
 }:
 let
   kubectl = lib.getExe pkgs.kubectl;
-  helm = lib.getExe pkgs.kubernetes-helm;
+  helm = lib.getExe (pkgs.wrapHelm pkgs.kubernetes-helm {
+    plugins = with pkgs.kubernetes-helmPlugins; [ helm-diff ];
+  });
+
   utils = import ./utils.nix { inherit pkgs lib; };
 
   mkHelm = { name, chart, namespace, context, kubeconfig, values, templates ? { } }:
     let
       output = mkOutput { inherit name values chart templates; };
-      mkHelmCommand = operation: args: pkgs.writeShellScriptBin "${operation}-${namespace}-${name}.sh" ''
+      mkHelmCommand = operation: args: pkgs.writeShellScriptBin "${lib.replaceChars [" "] ["-"] operation}-${namespace}-${name}.sh" ''
         ${helm} ${operation} ${name} --namespace "${namespace}" --kubeconfig "${kubeconfig}" --kube-context "${context}" ${args}
       '';
+
+      plan = mkHelmCommand "diff upgrade" ''--values "${output}/values.yaml" "${output}"'';
     in
     {
-      inherit name output values;
+      inherit name output values plan;
       install = mkHelmCommand "install" ''--values "${output}/values.yaml" "${output}"'';
       status = mkHelmCommand "status" "";
-      upgrade = mkHelmCommand "upgrade" ''--values "${output}/values.yaml" "${output}"'';
+      diff = mkHelmCommand "diff" ''--values "${output}/values.yaml" "${output}"'';
       uninstall = mkHelmCommand "uninstall" "";
+      upgrade = pkgs.writeShellScriptBin "upgrade-${namespace}-${name}.sh" ''
+        ${lib.getExe plan}
+
+        echo "Do you wish to apply these changes?"
+        select yn in "Yes" "No"; do
+            case $yn in
+                Yes ) ${lib.getExe (mkHelmCommand "upgrade" ''--values "${output}/values.yaml" "${output}"'')}; break;;
+                Yes ) make install; break;;
+                No ) exit;;
+            esac
+        done
+      '';
     };
 
   #  mkOutput = { name, values ? null, chart, templates ? {} }:
