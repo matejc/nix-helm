@@ -51,13 +51,13 @@ let
               utils.toYamlFile { name = "nix-helm-template-${path}.yaml"; attrs = value; }
             else value;
         in
-        "ln -s ${file} $out/templates/${path}";
+        "cp ${file} $out/templates/${path}";
       templatesCmd = lib.concatStringsSep "\n" (lib.mapAttrsToList templatesCmdMapper templates);
     in
     pkgs.runCommand "nix-helm-outputs-${name}" { } ''
       cp -R ${chart} $out
       chmod -R u+w $out
-      ln -sf ${valuesYaml} $out/values.yaml
+      cp ${valuesYaml} $out/values.yaml
 
       mkdir -p $out/templates
       ${templatesCmd}
