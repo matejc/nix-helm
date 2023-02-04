@@ -1,4 +1,5 @@
 import sys
+import yaml
 import json
 
 
@@ -72,11 +73,11 @@ def main():
     args = [a for a in sys.argv[1:] if not a.startswith("--")]
 
     if len(args) < 1:
-        print(f"Usage: {sys.argv[0]} [--flatten] <file.json>", file=sys.stderr)
+        print(f"Usage: {sys.argv[0]} [--flatten] <file.yaml>", file=sys.stderr)
         sys.exit(1)
 
     with open(args[0], "r") as f:
-        data = json.loads(strip_comments(f.read()))
+        data = yaml.safe_load(strip_comments(f.read()))
 
     print(fmt_any(data, flatten=flatten))
 
