@@ -36,6 +36,9 @@ let
             esac
         done
       '';
+      k9s = pkgs.writeShellScriptBin "k9s-${namespace}.sh" ''
+        ${lib.getExe pkgs.k9s} --kubeconfig "${kubeconfig}" --namespace "${namespace}" $@
+      '';
     };
 
   #  mkOutput = { name, values ? null, chart, templates ? {} }:
