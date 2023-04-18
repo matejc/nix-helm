@@ -7,7 +7,12 @@ let
     plugins = with pkgs.kubernetes-helmPlugins; [ helm-diff ];
   });
 
-  utils = import ./utils.nix { inherit pkgs lib; };
+  toYamlFile = name: content: pkgs.runCommand "yaml-to-json"
+    {
+      buildInputs = [ pkgs.gojsontoyaml ];
+      json = builtins.toJSON content;
+      passAsFile = [ "json" ];
+    } "cat $jsonPath | gojsontoyaml > $out";
 
   mkHelm = { name, chart, namespace, context, kubeconfig, values, templates ? { } }:
     let
@@ -41,12 +46,12 @@ let
 
   mkOutput = { name, values ? null, chart, templates ? { } }:
     let
-      valuesYaml = utils.toYamlFile { name = "${name}-values.yaml"; attrs = values; passthru = { inherit name; }; };
+      valuesYaml = toYamlFile "${name}-values.yaml" values;
       templatesCmdMapper = path: value:
         let
           file =
             if lib.isAttrs value then
-              utils.toYamlFile { name = "nix-helm-template-${path}.yaml"; attrs = value; }
+              toYamlFile "nix-helm-template-${path}.yaml" value
             else value;
         in
         "cp ${file} $out/templates/${path}";
@@ -62,7 +67,7 @@ let
     '';
 
   nixHelm = {
-    inherit mkHelm;
-  } // utils;
+    inherit mkHelm toYamlFile;
+  };
 in
 nixHelm

@@ -2,7 +2,7 @@
 let
   inherit (lib) getExe readFile;
   pythonScript = ./json2nix.py;
-  python = pkgs.python3.withPackages(it: [it.pyyaml]);
+  python = pkgs.python3.withPackages (it: [ it.pyyaml ]);
 
 in
 rec {
