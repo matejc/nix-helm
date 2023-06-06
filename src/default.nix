@@ -64,7 +64,7 @@ let
     '';
 
   nixHelm = {
-    inherit mkHelm toYamlFile;
+    inherit mkHelm toYamlFile mkOutput;
   };
 in
 nixHelm
