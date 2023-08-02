@@ -7,7 +7,7 @@ let
     plugins = with pkgs.kubernetes-helmPlugins; [ helm-diff ];
   });
 
-  toYamlFile = name: content: pkgs.runCommand "yaml-to-json"
+  toYamlFile = name: content: pkgs.runCommandLocal "yaml-to-json"
     {
       buildInputs = [ pkgs.gojsontoyaml ];
       json = builtins.toJSON content;
