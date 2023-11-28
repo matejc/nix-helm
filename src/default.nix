@@ -7,12 +7,18 @@ let
     plugins = with pkgs.kubernetes-helmPlugins; [ helm-diff ];
   });
 
-  toYamlFile = name: content: pkgs.runCommandLocal "yaml-to-json"
-    {
-      buildInputs = [ pkgs.gojsontoyaml ];
-      json = builtins.toJSON content;
-      passAsFile = [ "json" ];
-    } "cat $jsonPath | gojsontoyaml > $out";
+  partitionAttrs = fn: values:
+    lib.foldlAttrs
+      (acc: name: value:
+        if fn name value then {
+          inherit (acc) wrong;
+          right = acc.right // { ${name} = value; };
+        } else {
+          inherit (acc) right;
+          wrong = acc.wrong // { "${name}" = value; };
+        })
+      { right = { }; wrong = { }; }
+      values;
 
   mkHelm = { name, chart, namespace, context, kubeconfig, values, templates ? { } }:
     let
@@ -41,30 +47,47 @@ let
       '';
     };
 
-  mkOutput = { name, values ? null, chart, templates ? { } }:
+  mkOutput =
+    { chart
+    , name
+    , templates ? { }
+    , values ? null
+    }:
     let
-      valuesYaml = toYamlFile "${name}-values.yaml" values;
-      templatesCmdMapper = path: value:
-        let
-          file =
-            if lib.isAttrs value then
-              toYamlFile "nix-helm-template-${path}.yaml" value
-            else value;
-        in
-        "cp ${file} $out/templates/${path}";
-      templatesCmd = lib.concatStringsSep "\n" (lib.mapAttrsToList templatesCmdMapper templates);
-    in
-    pkgs.runCommand "nix-helm-outputs-${name}" { } ''
-      cp -R ${chart} $out
-      chmod -R u+w $out
-      cp ${valuesYaml} $out/values.yaml
 
-      mkdir -p $out/templates
-      ${templatesCmd}
-    '';
+      fileNameToEnvVar = builtins.replaceStrings [ "." "-" ] [ "_" "_" ];
+      templates' = lib.mapAttrs' (n: v: { name = n; value = if builtins.isPath v then v else builtins.toJSON v; }) templates;
+
+      templatesPartitions = (partitionAttrs (_: builtins.isPath) (lib.mapAttrs' (n: v: { name = fileNameToEnvVar n; value = v; }) templates'));
+      templatesNames = lib.mapAttrs' (n: _: { name = "${fileNameToEnvVar n}Name"; value = n; }) templates';
+
+      fileTemplates = templatesPartitions.right;
+      attrTemplates = templatesPartitions.wrong;
+
+    in
+    derivation ({
+      inherit name;
+      inherit (pkgs) system;
+      builder = "${pkgs.busybox}/bin/sh";
+      args = [ ./nix-helm.builder.sh ];
+      __ignoreNulls = true;
+      preferLocalBuild = true;
+      allowSubstitutes = false;
+
+      PATH = lib.makeBinPath [ pkgs.busybox pkgs.gojsontoyaml ];
+
+      chartPath = chart;
+      #chart = if chart == null then null else builtins.toJSON chart;
+      values = if values == null then null else builtins.toJSON values;
+
+      passAsFile = [ "values" ] ++ builtins.attrNames attrTemplates;
+      attrTemplates = builtins.attrNames attrTemplates;
+      fileTemplates = builtins.attrNames fileTemplates;
+    } // fileTemplates // attrTemplates // templatesNames);
+
 
   nixHelm = {
-    inherit mkHelm toYamlFile mkOutput;
+    inherit mkHelm mkOutput;
   };
 in
 nixHelm

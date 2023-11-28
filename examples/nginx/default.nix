@@ -1,11 +1,13 @@
 { helmish }:
 helmish.mkHelm {
   name = "name";
-  chart = ./.;
+  chart = ./Chart.yaml;
   namespace = "test";
   context = "arn:aws:eks:us-east-1:926093910549:cluster/lace-prod-us-east-1";
   kubeconfig = "$HOME/.kube/config";
 
+
+  templates."test2.yaml" = ./default.nix;
   templates."test.yaml" = {
     apiVersion = "acid.zalan.do/v1";
     kind = "postgresql";
