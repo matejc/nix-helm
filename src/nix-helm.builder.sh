@@ -1,6 +1,11 @@
 set -euo pipefail
 
-mkdir -p $out/templates
+mkdir -p $out/templates $out/bin
+cp $__commandApplyPath $out/bin/apply.sh
+cp $__commandDestroyPath  $out/bin/destroy.sh
+cp $__commandPlanPath  $out/bin/plan.sh
+cp $__commandStatusPath $out/bin/status.sh
+chmod +x $out/bin/*
 
 if [[ ! -z "${valuesPath-}" ]]; then
     cat $valuesPath | gojsontoyaml > $out/values.yaml
